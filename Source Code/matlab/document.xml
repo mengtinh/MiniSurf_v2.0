@@ -1,0 +1,846 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:pPr><w:pStyle w:val="code"/></w:pPr><w:r><w:t><![CDATA[classdef Minimalsurface < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        UIFigure                     matlab.ui.Figure
+        WorkingDirectory             matlab.ui.container.Menu
+        Directory                    matlab.ui.container.Menu
+        GridLayout                   matlab.ui.container.GridLayout
+        LeftPanel                    matlab.ui.container.Panel
+        MinimalSurfaceDropDownLabel  matlab.ui.control.Label
+        MinimalSurfaceDropDown       matlab.ui.control.DropDown
+        Equationf0Label              matlab.ui.control.Label
+        Equation                     matlab.ui.control.TextArea
+        NumberofunitcellsinxLabel    matlab.ui.control.Label
+        Numberofunitcells_x          matlab.ui.control.NumericEditField
+        yLabel_4                     matlab.ui.control.Label
+        Numberofunitcells_y          matlab.ui.control.NumericEditField
+        zLabel_4                     matlab.ui.control.Label
+        Numberofunitcells_z          matlab.ui.control.NumericEditField
+        Generate                     matlab.ui.control.Button
+        NumberofgridpointsinxLabel   matlab.ui.control.Label
+        Numberofgridpoints_x         matlab.ui.control.NumericEditField
+        yLabel_5                     matlab.ui.control.Label
+        Numberofgridpoints_y         matlab.ui.control.NumericEditField
+        zLabel_5                     matlab.ui.control.Label
+        Numberofgirdpoints_z         matlab.ui.control.NumericEditField
+        FilenameEditFieldLabel       matlab.ui.control.Label
+        Filename                     matlab.ui.control.EditField
+        Cancel                       matlab.ui.control.Button
+        inpCheckBox                  matlab.ui.control.CheckBox
+        stlCheckBox                  matlab.ui.control.CheckBox
+        RightPanel                   matlab.ui.container.Panel
+        figure                       matlab.ui.control.UIAxes
+        MeshmodeSwitchLabel          matlab.ui.control.Label
+        meshswitch                   matlab.ui.control.Switch
+        Statuslabel                  matlab.ui.control.Label
+        developer                    matlab.ui.control.Label
+    end
+
+    % Properties that correspond to apps with auto-reflow
+    properties (Access = private)
+        onePanelWidth = 576;
+    end
+
+ 
+    methods (Access = private)
+  %Abaqus Input File Function 
+  
+ function nodes2mesh(~, FV2, name)
+         %nodes: n by 3
+%Convert nodes to format abaqus nodoal coordinates
+nodes=FV2.vertices;
+
+j=size(nodes,1);
+
+coordinates=[(1:j)' nodes];
+
+
+connectivity=FV2.faces;
+%Element Connectivity
+
+k=size(connectivity,1);
+
+Mesh.Elem=[(1:k)' connectivity];
+
+
+      
+% write the input file
+
+
+
+A=[{'*HEADING'};{'**PARTS'};{'*PART, name=PART-1'};{'*NODE'}];
+fid=fopen(strcat(name,'.inp'),'w');
+fprintf(fid,'%s \n',A{:});
+% fprintf(fid,'*HEADING \n');
+% fprintf(fid,'**PARTS \n');
+% fprintf(fid,'*PART, name=PART-1 \n');
+% fprintf(fid, '*NODE \n');
+fprintf(fid,'%i, %.4f, %.4f, %.4f \n',coordinates');
+
+fprintf(fid,'*ELEMENT, TYPE=S3R, ELSET=EReal \n');
+
+fprintf(fid,'%i, %i, %i, %i \n',Mesh.Elem');
+
+
+fprintf(fid,'*End Part \n');
+
+
+
+fclose('all');
+   
+        end
+ %Stl File Function   
+ 
+function nodes2stl(~,FV2, name)
+  
+         %nodes: n by 3
+%Convert nodes to format abaqus nodoal coordinates
+nodes=FV2.vertices;
+
+
+connectivity=FV2.faces;
+%Element Connectivity
+
+k=size(connectivity,1);
+    
+% write the stl file
+
+% File = sprintf(strcat(name,'.txt'));
+
+fid=fopen(strcat(name,'.stl'),'w');
+
+fprintf(fid,'Solid \n');
+
+%cordinates of the first vertex of all elements
+a=nodes(connectivity(:,1),:);
+%cordinates of the second vertex of all elements
+b=nodes(connectivity(:,2),:);
+%cordinates of the third vertex of all elements
+c=nodes(connectivity(:,3),:);
+
+A=cell(7*k,4);
+A(:,1)=repmat([{'facet normal'};{'outer loop'};{'vertex'};{'vertex'};{'vertex'};{'endloop'};{'endfacet'}],k,1);
+
+% B=[reshape(a,1,[]);reshape(b,1,[]);reshape(c,1,[])];
+% C=[zeros(2,size(B,2));B;zeros(2,size(B,2))];
+% D=reshape(C,[],3);
+% A(:,2:4)=num2cell(D);
+d=cross((a-b),(a-c));
+
+for i=1:k
+     
+% A(i*7-6,:) =[{'facet normal'} num2cell(cross(a(i,:)-b(i,:),a(i,:)-c(i,:))/norm(cross(a(i,:)-b(i,:),a(i,:)-c(i,:))))];
+% fprintf(fid,'facet normal %12.10f %12.10f %12.10f \n',cross(a(i,:)-b(i,:),a(i,:)-c(i,:))/norm(cross(a(i,:)-b(i,:),a(i,:)-c(i,:))));
+% A(i*7-5,1)={'outer loop'};
+% fprintf(fid,'outer loop \n');
+% A(i*7-4,:)=[{'vertex'} num2cell(a(i,:))];
+% A(i*7-3,:)=[{'vertex'} num2cell(b(i,:))];
+% A(i*7-2,:)=[{'vertex'} num2cell(c(i,:))];
+% A(i*7-1:i*7,1)=[{'endloop'};{'endfacet'}];
+% A(i*7-6:i*7,1)=[{'facet normal'};{'outer loop'};{'vertex'};{'vertex'};{'vertex'};{'endloop'};{'endfacet'}];
+
+A([i*7-6 i*7-4:i*7-2],2:4)=[num2cell(d(i,:)/norm(d(i,:)));...
+    num2cell(a(i,:));num2cell(b(i,:));num2cell(c(i,:))];
+
+% fprintf(fid,'vertex %12.10f %12.10f %12.10f \n',[a(i,:);b(i,:);c(i,:)]');
+
+% fprintf(fid,'endloop \n');
+% fprintf(fid,'endfacet \n');
+
+end
+
+A=A';
+
+fprintf(fid,'%s %.4f %.4f %.4f \n',A{:,:});
+
+
+fprintf(fid,'endsolid \n');
+
+
+
+fclose('all');
+
+        end
+        
+        
+%         
+%         function FV3=Unifyvertices(app,FV)
+%             nodes=FV.vertices;
+%             faces=FV.faces;
+%           [c ia ic]=unique(nodes,'rows');
+%             k=size(faces,1);
+%         for  i=1:k
+%             for j=1:3
+%                 [A , B]=ismember(nodes(faces(i,j),:),c,'rows');
+%                 faces(i,j)=B;
+%             end
+%         end
+% %         faces=sort(faces,2);
+%         faces=unique(faces,'rows');
+%         FV3.vertices=c;
+%         FV3.faces=faces;
+%         end
+    end
+  
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Code that executes after component creation
+        function startupFcn(app)
+            drawnow;
+    app.UIFigure.WindowState = 'maximized';
+     app.Directory.Text=pwd;
+   
+        end
+
+        % Value changed function: Equation
+        function EquationValueChanged(app, event)
+            
+            
+        end
+
+        % Value changed function: MinimalSurfaceDropDown
+        function MinimalSurfaceDropDownValueChanged(app, event)
+            value = app.MinimalSurfaceDropDown.Value;
+           
+            if strcmp(value,'Schwarz P (Primitive)')==1
+                app.Equation.Value='cos(x)+cos(y)+cos(z)';
+                
+            elseif strcmp(value,'Double Primitive')==1
+                app.Equation.Value=['0.5*(cos(x).*cos(y)+cos(y).*cos(z)+cos(z).*cos(x))+0.2*(cos(2*x)+cos(2*y)+cos(2*z))'];
+                
+            elseif strcmp(value,'Schwarz D (Diamond)')==1
+                app.Equation.Value=['sin(x).*sin(y).*sin(z)+sin(x).*cos(y).*cos(z)+' ...
+                    'cos(x).*sin(y).*cos(z)+cos(x).*cos(y).*sin(z)'];
+                
+            elseif strcmp(value,"D'")==1
+                app.Equation.Value=['0.5*(cos(x).*cos(y).*cos(z)+cos(x).*sin(y).*sin(z)+sin(x).*cos(y).*sin(z)+sin(x).*sin(y).*cos(z))-' ...
+                    '0.5*(sin(2*x).*sin(2*y)+sin(2*y).*sin(2*z)+sin(2*z).*sin(2*x))-0.2'];
+                
+            elseif strcmp(value,'Double Diamond')==1
+                app.Equation.Value='0.5*(sin(x).*sin(y)+sin(y).*sin(z)+sin(x).*sin(z)) + 0.5*(cos(x).*cos(y).*cos(z))';
+                
+            elseif strcmp(value,'Complementary D')==1
+                app.Equation.Value=['cos(3*x+y).*cos(z)-sin(3*x-y).*sin(z)+cos(x+3*y).*cos(z)+sin(x-3*y).*sin(z)+' ...
+                    'cos(x-y).*cos(3*z)-sin(x+y).*sin(3*z)'];
+                
+            elseif  strcmp(value,'Gyroid')==1
+                app.Equation.Value='cos(x).*sin(y)+cos(y).*sin(z)+cos(z).*sin(x)';
+            
+            elseif  strcmp(value,"G'")==1
+                app.Equation.Value='sin(2*x).*cos(y).*sin(z)+sin(2*y).*cos(z).*sin(x)+sin(2*z).*cos(x).*sin(y)+0.32';
+                
+            elseif  strcmp(value,'Double Gyroid')==1
+                app.Equation.Value=['2.75*(sin(2*x).*sin(z).*cos(y)+sin(2*y).*sin(x).*cos(z)+sin(2*z).*sin(y).cos(x))-' ...
+                    '1*(cos(2*x).*cos(2*y)+cos(2*y).*cos(2*z)+cos(2*z).*cos(2*x))-0.95'];
+                
+            elseif  strcmp(value,'Lidinoid')==1
+                app.Equation.Value=['0.5*(sin(2*x).*cos(y).*sin(z)+sin(2*y).*cos(z).*sin(x)+sin(2*z).*cos(x).*sin(y))-0.5*(cos(2*x).*cos(2*y)+' ...
+                    'cos(2*y).*cos(2*z)+cos(2*z).*cos(2*x))+0.15'];
+                
+            elseif  strcmp(value,'Neovius')==1
+                app.Equation.Value='3*(cos(x)+cos(y)+cos(z))+4*cos(x).*cos(y).*cos(z)';
+            
+            elseif  strcmp(value,'K')==1
+                app.Equation.Value='0.3*(cos(x)+cos(y)+cos(z))+0.3*(cos(x).*cos(y)+cos(y).*cos(z)+cos(z).*cos(x))-0.4*(cos(2*x)+cos(2*y)+cos(2*z))+0.2';
+            
+            elseif  strcmp(value,'O,CT-O')==1
+                app.Equation.Value='0.6*(cos(x).*cos(y)+cos(y).*cos(z)+cos(z).*cos(x))-0.4*(cos(x)+cos(y)+cos(z))+0.25';
+                
+            elseif  strcmp(value,'I-WP')==1
+                app.Equation.Value='2*(cos(x).*cos(y)+cos(y).*cos(z)+cos(z).*cos(x))-(cos(2*x)+cos(2*y)+cos(2*z))';
+            elseif  strcmp(value,'Fisher-Koch C(Y)')==1
+                app.Equation.Value=['-sin(x).*sin(y).*sin(z)+sin(2*x).*sin(y)+sin(2*y).*sin(z)+sin(x).*sin(2*z)-' ...
+                    'cos(x).*cos(y).*cos(z)+' ...
+                    'sin(2*x).*cos(z)+cos(x).*sin(2*y)+cos(y).*sin(2*z)'];
+            elseif  strcmp(value,'Fisher-Koch S')==1
+                app.Equation.Value=('cos(2*x).*sin(y).*cos(z)+cos(x).*cos(2*y).*sin(z)+sin(x).*cos(y).*cos(2*z)');
+            elseif  strcmp(value,'Fisher-Koch C(S)')==1
+                app.Equation.Value=['cos(2*x)+cos(2*y)+cos(2*z)+2*(sin(3*x).*sin(2*y).*cos(z)+cos(x).*sin(3*y).*sin(2*z)+sin(2*x).*cos(y).*sin(3*z))+' ...
+                    '2*(sin(2*x).*cos(3*y).*sin(z)+sin(x).*sin(2*y).*cos(3*z)+cos(3*x).*sin(y).*sin(2*z))'];
+            elseif  strcmp(value,'Fisher-Koch Y')==1
+                app.Equation.Value=['cos(x).*cos(y).*cos(z)+sin(x).*sin(y).*sin(z)+sin(2*x).*sin(y)+sin(2*y).*sin(z)+' ...
+                    'sin(x).*sin(2*z)+sin(2*x).*cos(z)+cos(x).*sin(2*y)+cos(y).*sin(2*z)'];
+            elseif  strcmp(value,'F-RD')==1
+                app.Equation.Value='4*cos(x).*cos(y).*cos(z)-(cos(2*x).*cos(2*y)+cos(2*x).*cos(2*z)+cos(2*y).*cos(2*z))';
+            elseif  strcmp(value,'Custom Equation')==1
+                app.Equation.Value='Input the custom level set equation in x y z';
+                app.Equation.FontColor='Red';
+                pause (1);
+                app.Equation.Value='';
+                app.Equation.FontColor='Black';
+            end
+
+        end
+
+        % Value changed function: Numberofunitcells_x
+        function Numberofunitcells_xValueChanged(app, event)
+            
+            
+        end
+
+        % Button pushed function: Generate
+        function GenerateButtonPushed(app, event)
+             
+            %inputting files names
+            name= app.Filename.Value;
+            if (strcmp(name,'')==1 && app.inpCheckBox.Value==1) || (strcmp(name,'')==1 && app.stlCheckBox.Value==1)
+%             app.Statuslabel_filename.Visible='on';   
+             app.Filename.Value=['Please enter ' ...
+                 'a file name'];    
+             app.Filename.FontColor='red'; 
+               pause(2) 
+              app.Filename.Value='';  
+              app.Filename.FontColor='black'; 
+            else    
+           
+            %revert mesh mode to No
+           app.meshswitch.Value='Off';
+           
+
+            %Clear Figure
+            app.figure.cla;
+            
+            %Status
+            app.Statuslabel.Visible='on';   
+             app.Statuslabel.Text='Busy Computing...';
+             drawnow;
+             
+            [x, y, z]=meshgrid(linspace(0, app.Numberofunitcells_x.Value,app.Numberofgridpoints_x.Value), ...
+                linspace(0,app.Numberofunitcells_y.Value,app.Numberofgridpoints_y.Value),linspace(0, app.Numberofunitcells_z.Value, ...
+          app.Numberofgirdpoints_z.Value));
+
+             
+             cx = cos(2*pi*x); cy = cos(2*pi*y); cz = cos(2*pi*z); 
+             sx = sin(2*pi*x); sy = sin(2*pi*y); sz = sin(2*pi*z);
+             c2x = cos(2*2*pi*x); c2y = cos(2*2*pi*y); c2z = cos(2*2*pi*z); 
+             s2x = sin(2*2*pi*x); s2y = sin(2*2*pi*y); s2z = sin(2*2*pi*z);
+             c3x = cos(3*2*pi*x); c3y = cos(3*2*pi*y); c3z = cos(3*2*pi*z); 
+             s3x = sin(3*2*pi*x); s3y = sin(3*2*pi*y); s3z = sin(3*2*pi*z);
+
+          
+             
+            if strcmp(app.MinimalSurfaceDropDown.Value,'Schwarz P (Primitive)')==1
+                 f = cx+cy+cz;
+                 
+            elseif  strcmp(app.MinimalSurfaceDropDown.Value,'Double Primitive')==1
+             
+                f= 0.5*(cx.*cy+cy.*cz+cz.*cx)+0.2*(c2x+c2y+c2z);
+                   
+            elseif  strcmp(app.MinimalSurfaceDropDown.Value,'Schwarz D (Diamond)')==1
+             
+                f= (sx.*sy).*sz+(sx.*cy).*cz+(cx.*sy).*cz+(cx.*cy).*sz;
+           
+            elseif  strcmp(app.MinimalSurfaceDropDown.Value,'Double Diamond')==1
+             
+                f= 0.5*(sx.*sy+sy.*sz+sx.*sz) + 0.5*(cx.*cy.*cz);
+            
+            elseif  strcmp(app.MinimalSurfaceDropDown.Value,"D'")==1
+             
+                f= 0.5*(cx.*cy.*cz+cx.*sy.*sz+sx.*cy.*sz+sx.*sy.*cz)-...
+                0.5*(s2x.*s2y+s2y.*s2z+s2z.*s2x)-0.2;
+                
+            elseif  strcmp(app.MinimalSurfaceDropDown.Value,'Complementary D')==1
+             
+                f= cos(6*pi*x+2*pi*y).*cz-sin(6*pi*x-2*pi*y).*sz+cos(2*pi*x+6*pi*y).*cz+sin(2*pi*x-6*pi*y).*...
+                sz+cos(2*pi*x-2*pi*y).*c3z-sin(2*pi*x+2*pi*y).*s3z;
+                
+            elseif  strcmp(app.MinimalSurfaceDropDown.Value,'Gyroid')==1
+                
+                f = cx.*sz+cy.*sx+cz.*sy;
+           
+            elseif  strcmp(app.MinimalSurfaceDropDown.Value,"G'")==1
+                
+                f = s2x.*cy.*sz+s2y.*cz.*sx+s2z.*cx.*sy+0.32;
+            
+            elseif  strcmp(app.MinimalSurfaceDropDown.Value,'Double Gyroid')==1
+                
+                f = 2.75*(s2x.*sz.*cy+s2y.*sx.*cz+s2z.*sy.*cx)-1*(c2x.*c2y+c2y.*c2z+c2z.*c2x)-0.95;
+                
+            elseif  strcmp(app.MinimalSurfaceDropDown.Value,'Lidinoid')==1
+                
+                f = 0.5*((s2x.*cy).*sz+(s2y.*cz).*sx+(s2z.*cx).*sy)-0.5*(c2x.*c2y+c2y.*c2z+c2z.*c2x)+0.15;
+                
+            elseif  strcmp(app.MinimalSurfaceDropDown.Value,'Neovius')==1
+                f=3*(cx+cy+cz)+4*(cx.*cy).*cz;
+            
+            elseif  strcmp(app.MinimalSurfaceDropDown.Value,'O,CT-O')==1
+                f=0.6*(cx.*cy+cy.*cz+cz.*cx)-0.4*(cx+cy+cz)+0.25;
+            
+            elseif  strcmp(app.MinimalSurfaceDropDown.Value,'K')==1
+                f=0.3*(cx+cy+cz)+0.3*(cx.*cy+cy.*cz+cz.*cx)-0.4*(c2x+c2y+c2z)+0.2;
+                
+            elseif  strcmp(app.MinimalSurfaceDropDown.Value,'I-WP')==1
+                f=2*(cx.*cy+cy.*cz+cz.*cx)-(c2x+c2y+c2z);
+                
+            elseif  strcmp(app.MinimalSurfaceDropDown.Value,'Fisher-Koch C(Y)')==1
+                f=-2*((cx.*cy).*cz)+s2x.*sy+sx.*s2z+s2y.*sz;
+                 
+            elseif  strcmp(app.MinimalSurfaceDropDown.Value,'Fisher-Koch S')==1
+                f=(c2x.*sy).*cz+(cx.*c2y).*sz+(sx.*cy).*c2z;
+                 
+            elseif  strcmp(app.MinimalSurfaceDropDown.Value,'Fisher-Koch C(S)')==1
+                f=c2x+c2y+c2z+2*((s3x.*s2y).*cz+(cx.*s3y).*s2z+(s2x.*cy).*s3z)+2*((s2x.*c3y).*sz+(sx.*s2y).*c3z+(c3x.*sy).*s2z);
+                 
+            elseif  strcmp(app.MinimalSurfaceDropDown.Value,'Fisher-Koch Y')==1
+                f=2*(cx.*cy).*cz+s2x.*sy+sx.*s2z+sz.*s2y;
+                
+            elseif  strcmp(app.MinimalSurfaceDropDown.Value,'F-RD')==1
+                f=4*(cx.*cy).*cz-(c2x.*c2y+c2x.*c2z+c2y.*c2z);
+                
+            elseif  strcmp(app.MinimalSurfaceDropDown.Value,'Custom Equation')==1
+                   
+                myfunction=str2func(strcat('@(x,y,z)',char(app.Equation.Value)));
+               
+                 f=myfunction(2*pi*x,2*pi*y,2*pi*z);
+            end   
+               
+     
+
+FV3=isosurface(x,y,z,f,0); 
+FV3=reducepatch(FV3,30^3);
+
+
+drawnow;
+if  strcmp(app.Statuslabel.Text,'Execution Cancelled')==1
+     
+     return
+end
+if  app.inpCheckBox.Value==1
+
+nodes2mesh(app,FV3,name);
+end
+if  app.stlCheckBox.Value==1
+
+nodes2stl(app,FV3,name);
+end
+
+
+drawnow;
+if  strcmp(app.Statuslabel.Text,'Execution Cancelled')==1
+     
+     return
+ end
+
+
+%patch generation
+patch(app.figure,FV3,...
+   'FaceColor','blue','EdgeColor','none'); 
+camlight(app.figure, 'left'); 
+light(app.figure,'position',[0 -1 0]);
+colormap(app.figure,'jet') ;
+lighting(app.figure,'gouraud') ;
+pbaspect(app.figure,[app.Numberofunitcells_x.Value app.Numberofunitcells_y.Value app.Numberofunitcells_z.Value]);
+view(app.figure,3);
+
+save('FV.mat','FV3');
+
+set(app.meshswitch, 'Enable', 'on');
+
+    app.Statuslabel.Text='Done Computing!';
+    
+    pause(2);
+    
+     app.Statuslabel.Visible='off';
+            end
+   
+        end
+
+        % Value changed function: Numberofunitcells_y
+        function Numberofunitcells_yValueChanged(app, event)
+            
+            
+        end
+
+        % Value changed function: Numberofunitcells_z
+        function Numberofunitcells_zValueChanged(app, event)
+            
+            
+        end
+
+        % Value changed function: meshswitch
+        function meshswitchValueChanged(app, event)
+            value = app.meshswitch.Value;
+            
+            load('FV.mat','FV3');
+            app.figure.cla;
+            if strcmp(value,'Off')==1
+                patch(app.figure,FV3,...
+   'FaceColor','blue','EdgeColor','none'); 
+               camlight(app.figure, 'left'); 
+               colormap(app.figure,'jet') ;
+               lighting(app.figure,'gouraud') ;
+               pbaspect(app.figure,[app.Numberofunitcells_x.Value app.Numberofunitcells_y.Value app.Numberofunitcells_z.Value]);
+               view(app.figure,3);
+               
+            elseif strcmp(value,'On')==1
+               patch(app.figure,FV3,...
+   'FaceColor','blue','EdgeColor','black'); 
+               
+               pbaspect(app.figure,[app.Numberofunitcells_x.Value app.Numberofunitcells_y.Value app.Numberofunitcells_z.Value]);
+               view(app.figure,3);
+               
+            end
+        end
+
+        % Close request function: UIFigure
+        function UIFigureCloseRequest(app, event)
+            delete(app)
+            delete('FV.mat')
+        end
+
+        % Menu selected function: WorkingDirectory
+        function WorkingDirectorySelected(app, event)
+            
+            b=uigetdir;
+             if b==0
+                 drawnow;
+                 figure(app.UIFigure); %#ok<ADPROPLC> 
+             else
+                 cd(b);
+                 
+                 drawnow;
+                 figure(app.UIFigure); %#ok<ADPROPLC> 
+             end
+           app.Directory.Text=pwd;
+           
+           
+        end
+
+        % Button pushed function: Cancel
+        function CancelButtonPushed(app, event)
+            
+            app.Statuslabel.Visible='on';
+            app.Statuslabel.Text='Execution Cancelled';
+            pause(2)
+            app.Statuslabel.Visible='off';
+            
+         
+        end
+
+        % Changes arrangement of the app based on UIFigure width
+        function updateAppLayout(app, event)
+            currentFigureWidth = app.UIFigure.Position(3);
+            if(currentFigureWidth <= app.onePanelWidth)
+                % Change to a 2x1 grid
+                app.GridLayout.RowHeight = {391, 391};
+                app.GridLayout.ColumnWidth = {'1x'};
+                app.RightPanel.Layout.Row = 2;
+                app.RightPanel.Layout.Column = 1;
+            else
+                % Change to a 1x2 grid
+                app.GridLayout.RowHeight = {'1x'};
+                app.GridLayout.ColumnWidth = {468, '1x'};
+                app.RightPanel.Layout.Row = 1;
+                app.RightPanel.Layout.Column = 2;
+            end
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.AutoResizeChildren = 'off';
+            app.UIFigure.Color = [1 1 1];
+            app.UIFigure.Position = [100 100 898 391];
+            app.UIFigure.Name = 'UI Figure';
+            app.UIFigure.CloseRequestFcn = createCallbackFcn(app, @UIFigureCloseRequest, true);
+            app.UIFigure.SizeChangedFcn = createCallbackFcn(app, @updateAppLayout, true);
+            app.UIFigure.Scrollable = 'on';
+
+            % Create WorkingDirectory
+            app.WorkingDirectory = uimenu(app.UIFigure);
+            app.WorkingDirectory.MenuSelectedFcn = createCallbackFcn(app, @WorkingDirectorySelected, true);
+            app.WorkingDirectory.Tooltip = {'Seclect a working directory'};
+            app.WorkingDirectory.Text = 'Working Directory:';
+
+            % Create Directory
+            app.Directory = uimenu(app.UIFigure);
+            app.Directory.Enable = 'off';
+
+            % Create GridLayout
+            app.GridLayout = uigridlayout(app.UIFigure);
+            app.GridLayout.ColumnWidth = {468, '1x'};
+            app.GridLayout.RowHeight = {'1x'};
+            app.GridLayout.ColumnSpacing = 0;
+            app.GridLayout.RowSpacing = 0;
+            app.GridLayout.Padding = [0 0 0 0];
+            app.GridLayout.Scrollable = 'on';
+
+            % Create LeftPanel
+            app.LeftPanel = uipanel(app.GridLayout);
+            app.LeftPanel.BackgroundColor = [0.902 0.902 0.902];
+            app.LeftPanel.Layout.Row = 1;
+            app.LeftPanel.Layout.Column = 1;
+            app.LeftPanel.FontSize = 16;
+
+            % Create MinimalSurfaceDropDownLabel
+            app.MinimalSurfaceDropDownLabel = uilabel(app.LeftPanel);
+            app.MinimalSurfaceDropDownLabel.HorizontalAlignment = 'right';
+            app.MinimalSurfaceDropDownLabel.FontSize = 20;
+            app.MinimalSurfaceDropDownLabel.FontWeight = 'bold';
+            app.MinimalSurfaceDropDownLabel.Position = [158 348 159 40];
+            app.MinimalSurfaceDropDownLabel.Text = 'Minimal Surface';
+
+            % Create MinimalSurfaceDropDown
+            app.MinimalSurfaceDropDown = uidropdown(app.LeftPanel);
+            app.MinimalSurfaceDropDown.Items = {'Schwarz P (Primitive)', 'Double Primitive', 'Schwarz D (Diamond)', 'Complementary D', 'Double Diamond', 'D''', 'Gyroid', 'G''', 'Double Gyroid', 'K', 'O,CT-O', 'Lidinoid', 'Neovius', 'I-WP', 'Fisher-Koch S', 'Fisher-Koch C(S)', 'Fisher-Koch Y', 'Fisher-Koch C(Y)', 'F-RD', 'Custom Equation'};
+            app.MinimalSurfaceDropDown.ValueChangedFcn = createCallbackFcn(app, @MinimalSurfaceDropDownValueChanged, true);
+            app.MinimalSurfaceDropDown.Tooltip = {'Please select a minimal surface to generate'};
+            app.MinimalSurfaceDropDown.FontSize = 20;
+            app.MinimalSurfaceDropDown.FontColor = [0 0 1];
+            app.MinimalSurfaceDropDown.Position = [102 309 290 40];
+            app.MinimalSurfaceDropDown.Value = 'Schwarz P (Primitive)';
+
+            % Create Equationf0Label
+            app.Equationf0Label = uilabel(app.LeftPanel);
+            app.Equationf0Label.HorizontalAlignment = 'right';
+            app.Equationf0Label.FontSize = 18;
+            app.Equationf0Label.FontWeight = 'bold';
+            app.Equationf0Label.Position = [172 273 126 22];
+            app.Equationf0Label.Text = 'Equation (f=0)';
+
+            % Create Equation
+            app.Equation = uitextarea(app.LeftPanel);
+            app.Equation.ValueChangedFcn = createCallbackFcn(app, @EquationValueChanged, true);
+            app.Equation.HorizontalAlignment = 'center';
+            app.Equation.FontSize = 30;
+            app.Equation.Tooltip = {'Representative level set or parametric equation of the selected minimal surface'};
+            app.Equation.Position = [67 227 351 41];
+            app.Equation.Value = {'cos(x)+cos(y)+cos(z)'};
+
+            % Create NumberofunitcellsinxLabel
+            app.NumberofunitcellsinxLabel = uilabel(app.LeftPanel);
+            app.NumberofunitcellsinxLabel.HorizontalAlignment = 'right';
+            app.NumberofunitcellsinxLabel.FontSize = 14;
+            app.NumberofunitcellsinxLabel.Position = [77 191 159 22];
+            app.NumberofunitcellsinxLabel.Text = 'Number of unit cells in  x';
+
+            % Create Numberofunitcells_x
+            app.Numberofunitcells_x = uieditfield(app.LeftPanel, 'numeric');
+            app.Numberofunitcells_x.ValueChangedFcn = createCallbackFcn(app, @Numberofunitcells_xValueChanged, true);
+            app.Numberofunitcells_x.FontSize = 14;
+            app.Numberofunitcells_x.Position = [242 191 42 22];
+            app.Numberofunitcells_x.Value = 1;
+
+            % Create yLabel_4
+            app.yLabel_4 = uilabel(app.LeftPanel);
+            app.yLabel_4.HorizontalAlignment = 'right';
+            app.yLabel_4.FontSize = 14;
+            app.yLabel_4.Position = [279 192 25 22];
+            app.yLabel_4.Text = 'y';
+
+            % Create Numberofunitcells_y
+            app.Numberofunitcells_y = uieditfield(app.LeftPanel, 'numeric');
+            app.Numberofunitcells_y.ValueChangedFcn = createCallbackFcn(app, @Numberofunitcells_yValueChanged, true);
+            app.Numberofunitcells_y.FontSize = 14;
+            app.Numberofunitcells_y.Position = [310 191 42 22];
+            app.Numberofunitcells_y.Value = 1;
+
+            % Create zLabel_4
+            app.zLabel_4 = uilabel(app.LeftPanel);
+            app.zLabel_4.HorizontalAlignment = 'right';
+            app.zLabel_4.FontSize = 14;
+            app.zLabel_4.Position = [345 192 25 22];
+            app.zLabel_4.Text = 'z';
+
+            % Create Numberofunitcells_z
+            app.Numberofunitcells_z = uieditfield(app.LeftPanel, 'numeric');
+            app.Numberofunitcells_z.ValueChangedFcn = createCallbackFcn(app, @Numberofunitcells_zValueChanged, true);
+            app.Numberofunitcells_z.FontSize = 14;
+            app.Numberofunitcells_z.Position = [376 191 42 22];
+            app.Numberofunitcells_z.Value = 1;
+
+            % Create Generate
+            app.Generate = uibutton(app.LeftPanel, 'push');
+            app.Generate.ButtonPushedFcn = createCallbackFcn(app, @GenerateButtonPushed, true);
+            app.Generate.BackgroundColor = [0 0 1];
+            app.Generate.FontSize = 20;
+            app.Generate.FontWeight = 'bold';
+            app.Generate.FontColor = [1 1 1];
+            app.Generate.Tooltip = {'Generate the minimal surface structure'};
+            app.Generate.Position = [8 18 224 63];
+            app.Generate.Text = 'Generate';
+
+            % Create NumberofgridpointsinxLabel
+            app.NumberofgridpointsinxLabel = uilabel(app.LeftPanel);
+            app.NumberofgridpointsinxLabel.HorizontalAlignment = 'right';
+            app.NumberofgridpointsinxLabel.FontSize = 14;
+            app.NumberofgridpointsinxLabel.Position = [68 148 169 22];
+            app.NumberofgridpointsinxLabel.Text = 'Number of grid points in  x';
+
+            % Create Numberofgridpoints_x
+            app.Numberofgridpoints_x = uieditfield(app.LeftPanel, 'numeric');
+            app.Numberofgridpoints_x.FontSize = 14;
+            app.Numberofgridpoints_x.Position = [242 148 42 22];
+            app.Numberofgridpoints_x.Value = 50;
+
+            % Create yLabel_5
+            app.yLabel_5 = uilabel(app.LeftPanel);
+            app.yLabel_5.HorizontalAlignment = 'right';
+            app.yLabel_5.FontSize = 14;
+            app.yLabel_5.Position = [280 149 25 22];
+            app.yLabel_5.Text = 'y';
+
+            % Create Numberofgridpoints_y
+            app.Numberofgridpoints_y = uieditfield(app.LeftPanel, 'numeric');
+            app.Numberofgridpoints_y.FontSize = 14;
+            app.Numberofgridpoints_y.Position = [311 148 42 22];
+            app.Numberofgridpoints_y.Value = 50;
+
+            % Create zLabel_5
+            app.zLabel_5 = uilabel(app.LeftPanel);
+            app.zLabel_5.HorizontalAlignment = 'right';
+            app.zLabel_5.FontSize = 14;
+            app.zLabel_5.Position = [345 149 25 22];
+            app.zLabel_5.Text = 'z';
+
+            % Create Numberofgirdpoints_z
+            app.Numberofgirdpoints_z = uieditfield(app.LeftPanel, 'numeric');
+            app.Numberofgirdpoints_z.FontSize = 14;
+            app.Numberofgirdpoints_z.Position = [376 148 42 22];
+            app.Numberofgirdpoints_z.Value = 50;
+
+            % Create FilenameEditFieldLabel
+            app.FilenameEditFieldLabel = uilabel(app.LeftPanel);
+            app.FilenameEditFieldLabel.HorizontalAlignment = 'right';
+            app.FilenameEditFieldLabel.FontSize = 16;
+            app.FilenameEditFieldLabel.FontColor = [0 0 1];
+            app.FilenameEditFieldLabel.Position = [25 102 76 22];
+            app.FilenameEditFieldLabel.Text = 'File name';
+
+            % Create Filename
+            app.Filename = uieditfield(app.LeftPanel, 'text');
+            app.Filename.HorizontalAlignment = 'center';
+            app.Filename.FontSize = 16;
+            app.Filename.Tooltip = {'Please enter the file name to generate'};
+            app.Filename.Position = [107 101 186 23];
+
+            % Create Cancel
+            app.Cancel = uibutton(app.LeftPanel, 'push');
+            app.Cancel.ButtonPushedFcn = createCallbackFcn(app, @CancelButtonPushed, true);
+            app.Cancel.BackgroundColor = [0 0 1];
+            app.Cancel.FontSize = 20;
+            app.Cancel.FontWeight = 'bold';
+            app.Cancel.FontColor = [1 1 1];
+            app.Cancel.Tooltip = {'Cancel generation'};
+            app.Cancel.Position = [235 18 224 63];
+            app.Cancel.Text = 'Cancel';
+
+            % Create inpCheckBox
+            app.inpCheckBox = uicheckbox(app.LeftPanel);
+            app.inpCheckBox.Tooltip = {'Produce the Abaqus input file '};
+            app.inpCheckBox.Text = '.inp';
+            app.inpCheckBox.FontSize = 16;
+            app.inpCheckBox.Position = [313 102 48 22];
+
+            % Create stlCheckBox
+            app.stlCheckBox = uicheckbox(app.LeftPanel);
+            app.stlCheckBox.Tooltip = {'Produce the stl file for 3D printing'};
+            app.stlCheckBox.Text = '.stl';
+            app.stlCheckBox.FontSize = 16;
+            app.stlCheckBox.Position = [371 102 42 22];
+
+            % Create RightPanel
+            app.RightPanel = uipanel(app.GridLayout);
+            app.RightPanel.ForegroundColor = [0.149 0.149 0.149];
+            app.RightPanel.TitlePosition = 'centertop';
+            app.RightPanel.Title = 'Visualization';
+            app.RightPanel.BackgroundColor = [0.902 0.902 0.902];
+            app.RightPanel.Layout.Row = 1;
+            app.RightPanel.Layout.Column = 2;
+            app.RightPanel.FontWeight = 'bold';
+            app.RightPanel.FontSize = 30;
+
+            % Create figure
+            app.figure = uiaxes(app.RightPanel);
+            title(app.figure, '')
+            xlabel(app.figure, '')
+            ylabel(app.figure, '')
+            app.figure.AmbientLightColor = [0 0 0];
+            app.figure.PlotBoxAspectRatio = [1 1 1];
+            app.figure.FontSize = 20;
+            app.figure.ClippingStyle = 'rectangle';
+            app.figure.TickDir = 'in';
+            app.figure.GridColor = 'none';
+            app.figure.MinorGridColor = 'none';
+            app.figure.BoxStyle = 'full';
+            app.figure.XColor = 'none';
+            app.figure.XTick = [];
+            app.figure.YColor = 'none';
+            app.figure.YTick = [];
+            app.figure.ZColor = 'none';
+            app.figure.BackgroundColor = [1 1 1];
+            app.figure.Clipping = 'off';
+            app.figure.Position = [6 52 412 298];
+
+            % Create MeshmodeSwitchLabel
+            app.MeshmodeSwitchLabel = uilabel(app.RightPanel);
+            app.MeshmodeSwitchLabel.HorizontalAlignment = 'center';
+            app.MeshmodeSwitchLabel.FontSize = 16;
+            app.MeshmodeSwitchLabel.Position = [168 280 89 30];
+            app.MeshmodeSwitchLabel.Text = 'Mesh mode';
+
+            % Create meshswitch
+            app.meshswitch = uiswitch(app.RightPanel, 'slider');
+            app.meshswitch.ValueChangedFcn = createCallbackFcn(app, @meshswitchValueChanged, true);
+            app.meshswitch.Enable = 'off';
+            app.meshswitch.Tooltip = {'Please generate something first before this can be activated'};
+            app.meshswitch.FontSize = 14;
+            app.meshswitch.Position = [187 318 49 22];
+
+            % Create Statuslabel
+            app.Statuslabel = uilabel(app.RightPanel);
+            app.Statuslabel.HorizontalAlignment = 'center';
+            app.Statuslabel.FontSize = 30;
+            app.Statuslabel.FontColor = [0 0 1];
+            app.Statuslabel.Visible = 'off';
+            app.Statuslabel.Position = [48 138 331 36];
+            app.Statuslabel.Text = '';
+
+            % Create developer
+            app.developer = uilabel(app.RightPanel);
+            app.developer.FontWeight = 'bold';
+            app.developer.Position = [6 7 381 35];
+            app.developer.Text = 'Developed by Meng-Ting Hsieh. Last updated on July 25th, 2020';
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = Minimalsurface
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            % Execute the startup function
+            runStartupFcn(app, @startupFcn)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end]]></w:t></w:r></w:p></w:body></w:document>
