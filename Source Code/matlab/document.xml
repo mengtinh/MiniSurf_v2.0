@@ -29,6 +29,8 @@
         Cancel                       matlab.ui.control.Button
         inpCheckBox                  matlab.ui.control.CheckBox
         stlCheckBox                  matlab.ui.control.CheckBox
+        SmoothingButton              matlab.ui.control.Button
+        ExportCADButton              matlab.ui.control.Button
         RightPanel                   matlab.ui.container.Panel
         figure                       matlab.ui.control.UIAxes
         MeshmodeSwitchLabel          matlab.ui.control.Label
@@ -181,6 +183,51 @@ fclose('all');
 %         FV3.vertices=c;
 %         FV3.faces=faces;
 %         end
+        
+function FV = smoothsurf(~,FV2,x,y,z)
+            FV2=reducepatch(FV2,0.99);
+            A=FV2.faces;
+
+            B=FV2.vertices;
+
+            k=size(B,1);
+
+            D=zeros(k,3);
+            
+            t=cell(1,k);
+ 
+        parfor i=1:k
+    
+             C=any(A==i,2);
+
+     
+             C=A(C,:);
+     
+             t{1,i}=unique(C(:));
+    
+    
+        end   
+               
+for j=1:6
+        
+            parfor i=1:k
+                   
+                   T=t{1,i};
+%                    H=all(B(T,:)<x,2);
+%                    T=T(H,:);
+                   D(i,:)=mean(B(T,:),1);
+    
+            end
+end          
+            H=any(B==x | B==0 | B==y | B==z,2);
+            B(~H,:)=D(~H,:);
+      
+
+       FV.vertices=B;
+       FV.faces=A;
+
+            
+        end
     end
   
 
@@ -192,7 +239,7 @@ fclose('all');
             drawnow;
     app.UIFigure.WindowState = 'maximized';
      app.Directory.Text=pwd;
-   
+     delete('FV.mat')
         end
 
         % Value changed function: Equation
@@ -209,7 +256,7 @@ fclose('all');
                 app.Equation.Value='cos(x)+cos(y)+cos(z)';
                 
             elseif strcmp(value,'Double Primitive')==1
-                app.Equation.Value=['0.5*(cos(x).*cos(y)+cos(y).*cos(z)+cos(z).*cos(x))+0.2*(cos(2*x)+cos(2*y)+cos(2*z))'];
+                app.Equation.Value='0.5*(cos(x).*cos(y)+cos(y).*cos(z)+cos(z).*cos(x))+0.2*(cos(2*x)+cos(2*y)+cos(2*z))';
                 
             elseif strcmp(value,'Schwarz D (Diamond)')==1
                 app.Equation.Value=['sin(x).*sin(y).*sin(z)+sin(x).*cos(y).*cos(z)+' ...
@@ -284,17 +331,7 @@ fclose('all');
         % Button pushed function: Generate
         function GenerateButtonPushed(app, event)
              
-            %inputting files names
-            name= app.Filename.Value;
-            if (strcmp(name,'')==1 && app.inpCheckBox.Value==1) || (strcmp(name,'')==1 && app.stlCheckBox.Value==1)
-%             app.Statuslabel_filename.Visible='on';   
-             app.Filename.Value=['Please enter ' ...
-                 'a file name'];    
-             app.Filename.FontColor='red'; 
-               pause(2) 
-              app.Filename.Value='';  
-              app.Filename.FontColor='black'; 
-            else    
+           
            
             %revert mesh mode to No
            app.meshswitch.Value='Off';
@@ -320,7 +357,11 @@ fclose('all');
              c3x = cos(3*2*pi*x); c3y = cos(3*2*pi*y); c3z = cos(3*2*pi*z); 
              s3x = sin(3*2*pi*x); s3y = sin(3*2*pi*y); s3z = sin(3*2*pi*z);
 
-          
+          drawnow;
+         if  strcmp(app.Statuslabel.Text,'Execution Cancelled')==1
+     
+              return
+         end
              
             if strcmp(app.MinimalSurfaceDropDown.Value,'Schwarz P (Primitive)')==1
                  f = cx+cy+cz;
@@ -397,7 +438,11 @@ fclose('all');
                  f=myfunction(2*pi*x,2*pi*y,2*pi*z);
             end   
                
+          drawnow;
+         if  strcmp(app.Statuslabel.Text,'Execution Cancelled')==1
      
+              return
+         end   
 
 FV3=isosurface(x,y,z,f,0); 
 FV3=reducepatch(FV3,30^3);
@@ -408,23 +453,8 @@ if  strcmp(app.Statuslabel.Text,'Execution Cancelled')==1
      
      return
 end
-if  app.inpCheckBox.Value==1
-
-nodes2mesh(app,FV3,name);
-end
-if  app.stlCheckBox.Value==1
-
-nodes2stl(app,FV3,name);
-end
-
 
 drawnow;
-if  strcmp(app.Statuslabel.Text,'Execution Cancelled')==1
-     
-     return
- end
-
-
 %patch generation
 patch(app.figure,FV3,...
    'FaceColor','blue','EdgeColor','none'); 
@@ -444,7 +474,7 @@ set(app.meshswitch, 'Enable', 'on');
     pause(2);
     
      app.Statuslabel.Visible='off';
-            end
+            
    
         end
 
@@ -520,6 +550,114 @@ set(app.meshswitch, 'Enable', 'on');
          
         end
 
+        % Button pushed function: SmoothingButton
+        function SmoothingButtonPushed(app, event)
+            
+            if   isfile('FV.mat')==1
+            load('FV.mat','FV3');
+            
+          
+
+            x=app.Numberofunitcells_x.Value;
+            y=app.Numberofunitcells_y.Value;
+            z=app.Numberofunitcells_z.Value;
+            FV3=smoothsurf(app,FV3,x,y,z);
+           %clear figure
+          app.figure.cla;
+%         %change mesh mode to ON
+%            app.meshswitch.Value='On';
+%           drawnow;
+        %Status
+            app.Statuslabel.Visible='on';   
+            app.Statuslabel.Text='Smoothing...';
+
+            drawnow;
+          
+            %patch generation
+  patch(app.figure,FV3,...
+   'FaceColor','blue','EdgeColor','black'); 
+               
+    pbaspect(app.figure,[app.Numberofunitcells_x.Value app.Numberofunitcells_y.Value app.Numberofunitcells_z.Value]);
+    view(app.figure,3);
+    save('FV.mat','FV3');
+         %change mesh mode to ON
+           app.meshswitch.Value='On';
+          drawnow;
+    app.Statuslabel.Text='Done Smoothing!';
+    
+    
+    pause(2);
+    
+     app.Statuslabel.Visible='off';
+            else
+               app.Statuslabel.Visible='on';   
+               app.Statuslabel.Text='Generat something first'; 
+               pause(2);
+    
+               app.Statuslabel.Visible='off';
+               
+            end
+
+        end
+
+        % Button pushed function: ExportCADButton
+        function ExportCADButtonPushed(app, event)
+            
+             if   isfile('FV.mat')==0
+                 app.Statuslabel.Visible='on';   
+               app.Statuslabel.Text='Generat something first'; 
+               pause(2);
+    
+               app.Statuslabel.Visible='off';
+               
+               %inputting files names
+             elseif strcmp(app.Filename.Value,'')==1
+%                      app.Statuslabel_filename.Visible='on';   
+                        app.Filename.Value=['Please enter ' ...
+                           'a file name'];    
+                        app.Filename.FontColor='red'; 
+                        pause(2) 
+                        app.Filename.Value='';  
+                        app.Filename.FontColor='black'; 
+             elseif  app.inpCheckBox.Value==0 && app.stlCheckBox.Value==0
+                     app.Statuslabel.Visible='on';   
+                     app.Statuslabel.Text='Please tick .inp and/or .stl'; 
+                     app.Statuslabel.FontSize=24;
+                     pause(2);
+    
+                     app.Statuslabel.Visible='off';
+                     app.Statuslabel.FontSize=30;
+                 
+             else
+                         
+                          %Status
+                          drawnow;
+                          app.Statuslabel.Visible='on';   
+                          app.Statuslabel.Text='Busy Exporting...';
+                        
+                 
+                 
+                          load('FV.mat','FV3');
+                         if  app.inpCheckBox.Value==1
+
+                             nodes2mesh(app,FV3,app.Filename.Value);
+                         end
+                         if  app.stlCheckBox.Value==1
+
+                             nodes2stl(app,FV3,app.Filename.Value);
+                         end
+                         pause(1);
+                         app.Statuslabel.Text='Done Exporting!';
+    
+                         pause(2);
+    
+                         app.Statuslabel.Visible='off';
+                 
+             end
+            
+          
+        end
+
         % Changes arrangement of the app based on UIFigure width
         function updateAppLayout(app, event)
             currentFigureWidth = app.UIFigure.Position(3);
@@ -586,7 +724,7 @@ set(app.meshswitch, 'Enable', 'on');
             app.MinimalSurfaceDropDownLabel.HorizontalAlignment = 'right';
             app.MinimalSurfaceDropDownLabel.FontSize = 20;
             app.MinimalSurfaceDropDownLabel.FontWeight = 'bold';
-            app.MinimalSurfaceDropDownLabel.Position = [158 348 159 40];
+            app.MinimalSurfaceDropDownLabel.Position = [158 345 159 40];
             app.MinimalSurfaceDropDownLabel.Text = 'Minimal Surface';
 
             % Create MinimalSurfaceDropDown
@@ -596,7 +734,7 @@ set(app.meshswitch, 'Enable', 'on');
             app.MinimalSurfaceDropDown.Tooltip = {'Please select a minimal surface to generate'};
             app.MinimalSurfaceDropDown.FontSize = 20;
             app.MinimalSurfaceDropDown.FontColor = [0 0 1];
-            app.MinimalSurfaceDropDown.Position = [102 309 290 40];
+            app.MinimalSurfaceDropDown.Position = [102 306 290 40];
             app.MinimalSurfaceDropDown.Value = 'Schwarz P (Primitive)';
 
             % Create Equationf0Label
@@ -604,7 +742,7 @@ set(app.meshswitch, 'Enable', 'on');
             app.Equationf0Label.HorizontalAlignment = 'right';
             app.Equationf0Label.FontSize = 18;
             app.Equationf0Label.FontWeight = 'bold';
-            app.Equationf0Label.Position = [172 273 126 22];
+            app.Equationf0Label.Position = [172 274 126 22];
             app.Equationf0Label.Text = 'Equation (f=0)';
 
             % Create Equation
@@ -613,7 +751,7 @@ set(app.meshswitch, 'Enable', 'on');
             app.Equation.HorizontalAlignment = 'center';
             app.Equation.FontSize = 30;
             app.Equation.Tooltip = {'Representative level set or parametric equation of the selected minimal surface'};
-            app.Equation.Position = [67 227 351 41];
+            app.Equation.Position = [67 228 351 41];
             app.Equation.Value = {'cos(x)+cos(y)+cos(z)'};
 
             % Create NumberofunitcellsinxLabel
@@ -673,39 +811,39 @@ set(app.meshswitch, 'Enable', 'on');
             app.NumberofgridpointsinxLabel = uilabel(app.LeftPanel);
             app.NumberofgridpointsinxLabel.HorizontalAlignment = 'right';
             app.NumberofgridpointsinxLabel.FontSize = 14;
-            app.NumberofgridpointsinxLabel.Position = [68 148 169 22];
+            app.NumberofgridpointsinxLabel.Position = [67 157 169 22];
             app.NumberofgridpointsinxLabel.Text = 'Number of grid points in  x';
 
             % Create Numberofgridpoints_x
             app.Numberofgridpoints_x = uieditfield(app.LeftPanel, 'numeric');
             app.Numberofgridpoints_x.FontSize = 14;
-            app.Numberofgridpoints_x.Position = [242 148 42 22];
+            app.Numberofgridpoints_x.Position = [241 157 42 22];
             app.Numberofgridpoints_x.Value = 50;
 
             % Create yLabel_5
             app.yLabel_5 = uilabel(app.LeftPanel);
             app.yLabel_5.HorizontalAlignment = 'right';
             app.yLabel_5.FontSize = 14;
-            app.yLabel_5.Position = [280 149 25 22];
+            app.yLabel_5.Position = [279 158 25 22];
             app.yLabel_5.Text = 'y';
 
             % Create Numberofgridpoints_y
             app.Numberofgridpoints_y = uieditfield(app.LeftPanel, 'numeric');
             app.Numberofgridpoints_y.FontSize = 14;
-            app.Numberofgridpoints_y.Position = [311 148 42 22];
+            app.Numberofgridpoints_y.Position = [310 157 42 22];
             app.Numberofgridpoints_y.Value = 50;
 
             % Create zLabel_5
             app.zLabel_5 = uilabel(app.LeftPanel);
             app.zLabel_5.HorizontalAlignment = 'right';
             app.zLabel_5.FontSize = 14;
-            app.zLabel_5.Position = [345 149 25 22];
+            app.zLabel_5.Position = [344 158 25 22];
             app.zLabel_5.Text = 'z';
 
             % Create Numberofgirdpoints_z
             app.Numberofgirdpoints_z = uieditfield(app.LeftPanel, 'numeric');
             app.Numberofgirdpoints_z.FontSize = 14;
-            app.Numberofgirdpoints_z.Position = [376 148 42 22];
+            app.Numberofgirdpoints_z.Position = [375 157 42 22];
             app.Numberofgirdpoints_z.Value = 50;
 
             % Create FilenameEditFieldLabel
@@ -713,7 +851,7 @@ set(app.meshswitch, 'Enable', 'on');
             app.FilenameEditFieldLabel.HorizontalAlignment = 'right';
             app.FilenameEditFieldLabel.FontSize = 16;
             app.FilenameEditFieldLabel.FontColor = [0 0 1];
-            app.FilenameEditFieldLabel.Position = [25 102 76 22];
+            app.FilenameEditFieldLabel.Position = [25 125 76 22];
             app.FilenameEditFieldLabel.Text = 'File name';
 
             % Create Filename
@@ -721,7 +859,7 @@ set(app.meshswitch, 'Enable', 'on');
             app.Filename.HorizontalAlignment = 'center';
             app.Filename.FontSize = 16;
             app.Filename.Tooltip = {'Please enter the file name to generate'};
-            app.Filename.Position = [107 101 186 23];
+            app.Filename.Position = [107 124 191 23];
 
             % Create Cancel
             app.Cancel = uibutton(app.LeftPanel, 'push');
@@ -739,14 +877,28 @@ set(app.meshswitch, 'Enable', 'on');
             app.inpCheckBox.Tooltip = {'Produce the Abaqus input file '};
             app.inpCheckBox.Text = '.inp';
             app.inpCheckBox.FontSize = 16;
-            app.inpCheckBox.Position = [313 102 48 22];
+            app.inpCheckBox.Position = [313 125 48 22];
 
             % Create stlCheckBox
             app.stlCheckBox = uicheckbox(app.LeftPanel);
             app.stlCheckBox.Tooltip = {'Produce the stl file for 3D printing'};
             app.stlCheckBox.Text = '.stl';
             app.stlCheckBox.FontSize = 16;
-            app.stlCheckBox.Position = [371 102 42 22];
+            app.stlCheckBox.Position = [368 125 42 22];
+
+            % Create SmoothingButton
+            app.SmoothingButton = uibutton(app.LeftPanel, 'push');
+            app.SmoothingButton.ButtonPushedFcn = createCallbackFcn(app, @SmoothingButtonPushed, true);
+            app.SmoothingButton.Tooltip = {'Please generate a minimal surface first before smoothing'};
+            app.SmoothingButton.Position = [117 94 100 22];
+            app.SmoothingButton.Text = 'Smoothing';
+
+            % Create ExportCADButton
+            app.ExportCADButton = uibutton(app.LeftPanel, 'push');
+            app.ExportCADButton.ButtonPushedFcn = createCallbackFcn(app, @ExportCADButtonPushed, true);
+            app.ExportCADButton.Tooltip = {'Please generate a minimal surface before exporting'};
+            app.ExportCADButton.Position = [251 94 100 22];
+            app.ExportCADButton.Text = 'Export CAD';
 
             % Create RightPanel
             app.RightPanel = uipanel(app.GridLayout);
@@ -808,8 +960,8 @@ set(app.meshswitch, 'Enable', 'on');
             % Create developer
             app.developer = uilabel(app.RightPanel);
             app.developer.FontWeight = 'bold';
-            app.developer.Position = [6 7 381 35];
-            app.developer.Text = 'Developed by Meng-Ting Hsieh. Last updated on July 25th, 2020';
+            app.developer.Position = [6 7 416 35];
+            app.developer.Text = 'Developed by Meng-Ting Hsieh. Last updated on September 15th, 2020';
 
             % Show the figure after all components are created
             app.UIFigure.Visible = 'on';
