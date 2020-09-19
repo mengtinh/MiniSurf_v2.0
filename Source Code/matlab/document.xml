@@ -239,7 +239,9 @@ end
             drawnow;
     app.UIFigure.WindowState = 'maximized';
      app.Directory.Text=pwd;
-     delete('FV.mat')
+     if   isfile('FV.mat')==1
+     delete('FV.mat');
+     end
         end
 
         % Value changed function: Equation
