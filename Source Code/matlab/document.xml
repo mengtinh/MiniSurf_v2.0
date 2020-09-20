@@ -242,6 +242,7 @@ end
      if   isfile('FV.mat')==1
      delete('FV.mat');
      end
+     
         end
 
         % Value changed function: Equation
@@ -520,7 +521,12 @@ set(app.meshswitch, 'Enable', 'on');
         % Close request function: UIFigure
         function UIFigureCloseRequest(app, event)
             delete(app)
-            delete('FV.mat')
+            if   isfile('FV.mat')==1
+     
+        
+            delete('FV.mat');
+            
+            end
         end
 
         % Menu selected function: WorkingDirectory
